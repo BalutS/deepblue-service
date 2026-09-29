@@ -56,7 +56,6 @@ public class TreatmentServiceImpl implements TreatmentService {
     @Transactional
     public TreatmentResponse register(CreateTreatmentRequest request) {
 
-        // Datos mínimos del request (no requieren acceder a la base de datos).
         if (request == null
                 || request.performedAt() == null
                 || request.type() == null) {
@@ -64,26 +63,22 @@ public class TreatmentServiceImpl implements TreatmentService {
                     "Treatment date and type are required.");
         }
 
-        // 1. Buscar Animal -> Regla 1.
         Animal animal = animalRepository
                 .findByAnimalCode(request.animalCode())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Animal " + request.animalCode() + " does not exist."));
 
-        // 2. Buscar Specialist -> Regla 2.
         Specialist specialist = specialistRepository
                 .findByProfessionalCode(request.specialistCode())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Specialist " + request.specialistCode() + " does not exist."));
 
-        // 3. Validar specialist.active -> Regla 3.
         if (!specialist.isActive()) {
             throw new BusinessRuleException(
                     "Cannot register treatment because specialist "
                             + specialist.getProfessionalCode() + " is not active.");
         }
 
-        // 4. Obtener el RescueCase del Animal.
         RescueCase rescueCase = animal.getRescueCase();
         if (rescueCase == null) {
             throw new BusinessRuleException(
@@ -91,7 +86,6 @@ public class TreatmentServiceImpl implements TreatmentService {
                             + animal.getAnimalCode() + " has no rescue case.");
         }
 
-        // 5. Validar status -> Regla 4.
         RescueStatus status = rescueCase.getStatus();
         if (status == RescueStatus.RELEASED || status == RescueStatus.CLOSED) {
             throw new BusinessRuleException(
@@ -99,7 +93,6 @@ public class TreatmentServiceImpl implements TreatmentService {
                             + rescueCase.getCaseCode() + " is already " + status + ".");
         }
 
-        // 6. Validar performedAt -> Regla 5.
         if (request.performedAt().toLocalDate().isBefore(rescueCase.getRescueDate())) {
             throw new BusinessRuleException(
                     "Treatment date " + request.performedAt().toLocalDate()
@@ -107,7 +100,6 @@ public class TreatmentServiceImpl implements TreatmentService {
                             + rescueCase.getRescueDate() + ".");
         }
 
-        // 7. Crear Treatment.
         Treatment treatment = new Treatment(
                 animal,
                 specialist,
@@ -116,10 +108,8 @@ public class TreatmentServiceImpl implements TreatmentService {
                 request.description()
         );
 
-        // 8. Guardar Treatment.
         Treatment saved = treatmentRepository.save(treatment);
 
-        // 9. Mapear TreatmentResponse.
         return mapper.toResponse(saved);
     }
 }

@@ -10,9 +10,5 @@ public interface AnimalService {
 
     List<AnimalResponse> findAnimalsInRehabilitation();
 
-    /**
-     * Un animal puede recibir tratamiento cuando su caso está en
-     * UNDER_EVALUATION o IN_REHABILITATION.
-     */
     boolean canReceiveTreatment(String animalCode);
 }

@@ -45,27 +45,24 @@ class AnimalServiceImplTest {
 
     @Test
     void shouldFindAnimalByCode() {
-        // Arrange
+
         Animal animal = animalWithCaseStatus(RescueStatus.IN_REHABILITATION);
         AnimalResponse response = responseFor(RescueStatus.IN_REHABILITATION);
 
         when(repository.findByAnimalCode(ANIMAL_CODE)).thenReturn(Optional.of(animal));
         when(mapper.toResponse(animal)).thenReturn(response);
 
-        // Act
         AnimalResponse result = service.findByCode(ANIMAL_CODE);
 
-        // Assert
         assertThat(result).isEqualTo(response);
         verify(mapper).toResponse(animal);
     }
 
     @Test
     void shouldThrowResourceNotFoundWhenAnimalDoesNotExist() {
-        // Arrange
+
         when(repository.findByAnimalCode("AN-999")).thenReturn(Optional.empty());
 
-        // Act + Assert
         assertThatThrownBy(() -> service.findByCode("AN-999"))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("AN-999");
@@ -75,7 +72,7 @@ class AnimalServiceImplTest {
 
     @Test
     void shouldFindAnimalsInRehabilitation() {
-        // Arrange
+
         Animal animal = animalWithCaseStatus(RescueStatus.IN_REHABILITATION);
         AnimalResponse response = responseFor(RescueStatus.IN_REHABILITATION);
 
@@ -83,23 +80,19 @@ class AnimalServiceImplTest {
                 .thenReturn(List.of(animal));
         when(mapper.toResponse(animal)).thenReturn(response);
 
-        // Act
         List<AnimalResponse> result = service.findAnimalsInRehabilitation();
 
-        // Assert
         assertThat(result).containsExactly(response);
     }
 
-    // canReceiveTreatment -> true solo en UNDER_EVALUATION o IN_REHABILITATION
     @ParameterizedTest(name = "case {0} can receive treatment")
     @EnumSource(value = RescueStatus.class,
             names = {"UNDER_EVALUATION", "IN_REHABILITATION"})
     void shouldAllowTreatmentWhenCaseIsUnderEvaluationOrInRehabilitation(RescueStatus status) {
-        // Arrange
+
         when(repository.findByAnimalCode(ANIMAL_CODE))
                 .thenReturn(Optional.of(animalWithCaseStatus(status)));
 
-        // Act + Assert
         assertThat(service.canReceiveTreatment(ANIMAL_CODE)).isTrue();
     }
 
@@ -108,39 +101,32 @@ class AnimalServiceImplTest {
             mode = EnumSource.Mode.EXCLUDE,
             names = {"UNDER_EVALUATION", "IN_REHABILITATION"})
     void shouldNotAllowTreatmentInAnyOtherStatus(RescueStatus status) {
-        // Arrange
+
         when(repository.findByAnimalCode(ANIMAL_CODE))
                 .thenReturn(Optional.of(animalWithCaseStatus(status)));
 
-        // Act + Assert
         assertThat(service.canReceiveTreatment(ANIMAL_CODE)).isFalse();
     }
 
     @Test
     void shouldNotAllowTreatmentWhenAnimalHasNoRescueCase() {
-        // Arrange
+
         Animal animal = new Animal(
                 ANIMAL_CODE, "Green Sea Turtle", "Chelonia mydas", AnimalSex.UNKNOWN);
         when(repository.findByAnimalCode(ANIMAL_CODE)).thenReturn(Optional.of(animal));
 
-        // Act + Assert
         assertThat(service.canReceiveTreatment(ANIMAL_CODE)).isFalse();
     }
 
     @Test
     void shouldThrowResourceNotFoundWhenCheckingUnknownAnimal() {
-        // Arrange
+
         when(repository.findByAnimalCode("AN-999")).thenReturn(Optional.empty());
 
-        // Act + Assert
         assertThatThrownBy(() -> service.canReceiveTreatment("AN-999"))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("AN-999");
     }
-
-    // ---------------------------------------------------------------
-    // Helpers
-    // ---------------------------------------------------------------
 
     private Animal animalWithCaseStatus(RescueStatus status) {
         RescueCase rescueCase = new RescueCase(
