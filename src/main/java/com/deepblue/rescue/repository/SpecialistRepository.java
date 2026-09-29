@@ -10,14 +10,8 @@ import java.util.Optional;
 
 public interface SpecialistRepository extends JpaRepository<Specialist, Long> {
 
-    // Capa de servicio - búsqueda por código profesional (clave de negocio).
     Optional<Specialist> findByProfessionalCode(String professionalCode);
 
-    // Paso 39 - JPQL: especialistas activos con determinada experiencia.
-    // Nota (paso 40): JPQL usa nombres de ENTIDAD (Specialist, expertiseAreas),
-    // no nombres de TABLA (specialists, specialist_expertise), porque JPQL
-    // consulta el modelo de objetos mapeado, no las tablas físicas;
-    // Hibernate traduce esos nombres a SQL real en tiempo de ejecución.
     @Query("""
             select distinct s
             from Specialist s

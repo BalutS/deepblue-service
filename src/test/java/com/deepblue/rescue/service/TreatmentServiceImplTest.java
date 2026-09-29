@@ -62,14 +62,9 @@ class TreatmentServiceImplTest {
     @InjectMocks
     private TreatmentServiceImpl service;
 
-    // ---------------------------------------------------------------
-    // register - caso feliz
-    // ---------------------------------------------------------------
-
-    // TEST 5 - Tratamiento válido -> save()
     @Test
     void shouldRegisterTreatmentWhenAllRulesAreMet() {
-        // Arrange
+
         Animal animal = animalWithCaseStatus(RescueStatus.IN_REHABILITATION);
         Specialist specialist = specialist(true);
         CreateTreatmentRequest request = request(VALID_DATE);
@@ -84,10 +79,8 @@ class TreatmentServiceImplTest {
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(mapper.toResponse(any(Treatment.class))).thenReturn(response);
 
-        // Act
         TreatmentResponse result = service.register(request);
 
-        // Assert
         assertThat(result).isEqualTo(response);
 
         ArgumentCaptor<Treatment> captor = ArgumentCaptor.forClass(Treatment.class);
@@ -102,10 +95,9 @@ class TreatmentServiceImplTest {
         verify(mapper).toResponse(saved);
     }
 
-    // Caso límite: el mismo día del rescate SÍ es válido (no es "anterior").
     @Test
     void shouldAllowTreatmentOnTheSameDayAsTheRescue() {
-        // Arrange
+
         Animal animal = animalWithCaseStatus(RescueStatus.UNDER_EVALUATION);
         LocalDateTime sameDay = RESCUE_DATE.atStartOfDay();
 
@@ -119,24 +111,17 @@ class TreatmentServiceImplTest {
                         1L, ANIMAL_CODE, SPECIALIST_CODE, sameDay,
                         TreatmentType.WOUND_CARE, null));
 
-        // Act
         TreatmentResponse result = service.register(request(sameDay));
 
-        // Assert
         assertThat(result.performedAt()).isEqualTo(sameDay);
         verify(treatmentRepository).save(any(Treatment.class));
     }
 
-    // ---------------------------------------------------------------
-    // register - Reglas 1 y 2: recursos inexistentes
-    // ---------------------------------------------------------------
-
     @Test
     void shouldThrowResourceNotFoundWhenAnimalDoesNotExist() {
-        // Arrange
+
         when(animalRepository.findByAnimalCode(ANIMAL_CODE)).thenReturn(Optional.empty());
 
-        // Act + Assert
         assertThatThrownBy(() -> service.register(request(VALID_DATE)))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining(ANIMAL_CODE);
@@ -146,13 +131,12 @@ class TreatmentServiceImplTest {
 
     @Test
     void shouldThrowResourceNotFoundWhenSpecialistDoesNotExist() {
-        // Arrange
+
         when(animalRepository.findByAnimalCode(ANIMAL_CODE))
                 .thenReturn(Optional.of(animalWithCaseStatus(RescueStatus.IN_REHABILITATION)));
         when(specialistRepository.findByProfessionalCode(SPECIALIST_CODE))
                 .thenReturn(Optional.empty());
 
-        // Act + Assert
         assertThatThrownBy(() -> service.register(request(VALID_DATE)))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining(SPECIALIST_CODE);
@@ -160,20 +144,14 @@ class TreatmentServiceImplTest {
         verify(treatmentRepository, never()).save(any());
     }
 
-    // ---------------------------------------------------------------
-    // register - Regla 3: especialista activo
-    // ---------------------------------------------------------------
-
-    // TEST 6 - Especialista inactivo -> BusinessRuleException y nunca save()
     @Test
     void shouldRejectInactiveSpecialistAndNeverSave() {
-        // Arrange
+
         when(animalRepository.findByAnimalCode(ANIMAL_CODE))
                 .thenReturn(Optional.of(animalWithCaseStatus(RescueStatus.IN_REHABILITATION)));
         when(specialistRepository.findByProfessionalCode(SPECIALIST_CODE))
                 .thenReturn(Optional.of(specialist(false)));
 
-        // Act + Assert
         assertThatThrownBy(() -> service.register(request(VALID_DATE)))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("not active");
@@ -182,15 +160,10 @@ class TreatmentServiceImplTest {
         verify(mapper, never()).toResponse(any());
     }
 
-    // ---------------------------------------------------------------
-    // register - Regla 4: estado del caso
-    // ---------------------------------------------------------------
-
-    // TEST 7 - Caso RELEASED (y CLOSED) -> BusinessRuleException
     @ParameterizedTest(name = "case {0} rejects new treatments")
     @EnumSource(value = RescueStatus.class, names = {"RELEASED", "CLOSED"})
     void shouldRejectTreatmentWhenCaseIsReleasedOrClosed(RescueStatus status) {
-        // Arrange
+
         when(animalRepository.findByAnimalCode(ANIMAL_CODE))
                 .thenReturn(Optional.of(animalWithCaseStatus(status)));
         when(specialistRepository.findByProfessionalCode(SPECIALIST_CODE))
@@ -200,7 +173,6 @@ class TreatmentServiceImplTest {
                 ANIMAL_CODE, SPECIALIST_CODE, VALID_DATE,
                 TreatmentType.OBSERVATION, "Routine observation.");
 
-        // Act + Assert
         assertThatThrownBy(() -> service.register(request))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining(status.name());
@@ -210,7 +182,7 @@ class TreatmentServiceImplTest {
 
     @Test
     void shouldRejectTreatmentWhenAnimalHasNoRescueCase() {
-        // Arrange
+
         Animal animalWithoutCase = new Animal(
                 ANIMAL_CODE, "Green Sea Turtle", "Chelonia mydas", AnimalSex.UNKNOWN);
 
@@ -219,7 +191,6 @@ class TreatmentServiceImplTest {
         when(specialistRepository.findByProfessionalCode(SPECIALIST_CODE))
                 .thenReturn(Optional.of(specialist(true)));
 
-        // Act + Assert
         assertThatThrownBy(() -> service.register(request(VALID_DATE)))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("no rescue case");
@@ -227,13 +198,9 @@ class TreatmentServiceImplTest {
         verify(treatmentRepository, never()).save(any());
     }
 
-    // ---------------------------------------------------------------
-    // register - Regla 5: fecha del tratamiento
-    // ---------------------------------------------------------------
-
     @Test
     void shouldRejectTreatmentDatedBeforeTheRescueDate() {
-        // Arrange: rescate 2026-08-20, tratamiento 2026-08-15
+
         when(animalRepository.findByAnimalCode(ANIMAL_CODE))
                 .thenReturn(Optional.of(animalWithCaseStatus(RescueStatus.IN_REHABILITATION)));
         when(specialistRepository.findByProfessionalCode(SPECIALIST_CODE))
@@ -241,17 +208,12 @@ class TreatmentServiceImplTest {
 
         CreateTreatmentRequest request = request(LocalDateTime.of(2026, 8, 15, 9, 0));
 
-        // Act + Assert
         assertThatThrownBy(() -> service.register(request))
                 .isInstanceOf(BusinessRuleException.class)
                 .hasMessageContaining("earlier than the rescue date");
 
         verify(treatmentRepository, never()).save(any());
     }
-
-    // ---------------------------------------------------------------
-    // register - datos mínimos del request
-    // ---------------------------------------------------------------
 
     @Test
     void shouldRejectRequestWithoutDateOrType() {
@@ -270,13 +232,9 @@ class TreatmentServiceImplTest {
         verifyNoInteractions(animalRepository, specialistRepository, treatmentRepository, mapper);
     }
 
-    // ---------------------------------------------------------------
-    // findByAnimalCode
-    // ---------------------------------------------------------------
-
     @Test
     void shouldFindTreatmentsByAnimalCodeInChronologicalOrder() {
-        // Arrange
+
         Animal animal = animalWithCaseStatus(RescueStatus.IN_REHABILITATION);
         Specialist specialist = specialist(true);
         Treatment first = new Treatment(animal, specialist, VALID_DATE,
@@ -295,30 +253,22 @@ class TreatmentServiceImplTest {
         when(mapper.toResponse(first)).thenReturn(firstResponse);
         when(mapper.toResponse(second)).thenReturn(secondResponse);
 
-        // Act
         List<TreatmentResponse> result = service.findByAnimalCode(ANIMAL_CODE);
 
-        // Assert
         assertThat(result).containsExactly(firstResponse, secondResponse);
     }
 
     @Test
     void shouldReturnEmptyListWhenAnimalHasNoTreatments() {
-        // Arrange
+
         when(treatmentRepository.findByAnimalAnimalCodeOrderByPerformedAtAsc(ANIMAL_CODE))
                 .thenReturn(List.of());
 
-        // Act
         List<TreatmentResponse> result = service.findByAnimalCode(ANIMAL_CODE);
 
-        // Assert
         assertThat(result).isEmpty();
         verifyNoInteractions(mapper);
     }
-
-    // ---------------------------------------------------------------
-    // Helpers
-    // ---------------------------------------------------------------
 
     private Animal animalWithCaseStatus(RescueStatus status) {
         RescueCase rescueCase = new RescueCase(

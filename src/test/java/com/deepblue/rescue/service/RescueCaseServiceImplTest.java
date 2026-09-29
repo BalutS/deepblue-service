@@ -47,36 +47,27 @@ class RescueCaseServiceImplTest {
     @InjectMocks
     private RescueCaseServiceImpl service;
 
-    // ---------------------------------------------------------------
-    // findByCode
-    // ---------------------------------------------------------------
-
-    // TEST 1 - RescueCase existente -> retorna DTO
     @Test
     void shouldFindRescueCaseByCode() {
-        // Arrange
+
         RescueCase rescueCase = rescueCaseWithStatus(RescueStatus.ADMITTED);
         RescueCaseResponse response = responseFor(RescueStatus.ADMITTED);
 
         when(repository.findByCaseCode(CASE_CODE)).thenReturn(Optional.of(rescueCase));
         when(mapper.toResponse(rescueCase)).thenReturn(response);
 
-        // Act
         RescueCaseResponse result = service.findByCode(CASE_CODE);
 
-        // Assert
         assertThat(result).isEqualTo(response);
         verify(repository).findByCaseCode(CASE_CODE);
         verify(mapper).toResponse(rescueCase);
     }
 
-    // TEST 2 - RescueCase inexistente -> ResourceNotFoundException
     @Test
     void shouldThrowResourceNotFoundWhenRescueCaseDoesNotExist() {
-        // Arrange
+
         when(repository.findByCaseCode("RES-999")).thenReturn(Optional.empty());
 
-        // Act + Assert
         assertThatThrownBy(() -> service.findByCode("RES-999"))
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("RES-999");
@@ -84,13 +75,9 @@ class RescueCaseServiceImplTest {
         verify(mapper, never()).toResponse(any());
     }
 
-    // ---------------------------------------------------------------
-    // findByStatus
-    // ---------------------------------------------------------------
-
     @Test
     void shouldFindRescueCasesByStatus() {
-        // Arrange
+
         RescueCase first = rescueCaseWithStatus(RescueStatus.IN_REHABILITATION);
         RescueCase second = rescueCaseWithStatus(RescueStatus.IN_REHABILITATION);
         RescueCaseResponse firstResponse = responseFor(RescueStatus.IN_REHABILITATION);
@@ -101,36 +88,27 @@ class RescueCaseServiceImplTest {
         when(mapper.toResponse(first)).thenReturn(firstResponse);
         when(mapper.toResponse(second)).thenReturn(secondResponse);
 
-        // Act
         List<RescueCaseResponse> result =
                 service.findByStatus(RescueStatus.IN_REHABILITATION);
 
-        // Assert
         assertThat(result).containsExactly(firstResponse, secondResponse);
     }
 
     @Test
     void shouldReturnEmptyListWhenNoCaseHasThatStatus() {
-        // Arrange
+
         when(repository.findByStatusOrderByRescueDateAsc(RescueStatus.CLOSED))
                 .thenReturn(List.of());
 
-        // Act
         List<RescueCaseResponse> result = service.findByStatus(RescueStatus.CLOSED);
 
-        // Assert
         assertThat(result).isEmpty();
         verifyNoInteractions(mapper);
     }
 
-    // ---------------------------------------------------------------
-    // changeStatus
-    // ---------------------------------------------------------------
-
-    // TEST 3 - Transición válida -> cambia status, save() y retorna response
     @Test
     void shouldChangeStatusWhenTransitionIsValid() {
-        // Arrange
+
         RescueCase rescueCase = rescueCaseWithStatus(RescueStatus.ADMITTED);
         RescueCaseResponse response = responseFor(RescueStatus.UNDER_EVALUATION);
 
@@ -138,18 +116,15 @@ class RescueCaseServiceImplTest {
         when(repository.save(rescueCase)).thenReturn(rescueCase);
         when(mapper.toResponse(rescueCase)).thenReturn(response);
 
-        // Act
         RescueCaseResponse result = service.changeStatus(
                 CASE_CODE,
                 new ChangeRescueStatusRequest(RescueStatus.UNDER_EVALUATION));
 
-        // Assert
         assertThat(result).isEqualTo(response);
         assertThat(rescueCase.getStatus()).isEqualTo(RescueStatus.UNDER_EVALUATION);
         verify(repository).save(rescueCase);
     }
 
-    // Recorre todo el flujo permitido: cada paso hacia adelante es válido.
     @ParameterizedTest(name = "{0} -> {1} is allowed")
     @CsvSource({
             "ADMITTED,          UNDER_EVALUATION",
@@ -158,7 +133,7 @@ class RescueCaseServiceImplTest {
             "READY_FOR_RELEASE, RELEASED"
     })
     void shouldAllowEveryStepOfTheRescueFlow(RescueStatus current, RescueStatus next) {
-        // Arrange
+
         RescueCase rescueCase = rescueCaseWithStatus(current);
         RescueCaseResponse response = responseFor(next);
 
@@ -166,24 +141,20 @@ class RescueCaseServiceImplTest {
         when(repository.save(rescueCase)).thenReturn(rescueCase);
         when(mapper.toResponse(rescueCase)).thenReturn(response);
 
-        // Act
         RescueCaseResponse result =
                 service.changeStatus(CASE_CODE, new ChangeRescueStatusRequest(next));
 
-        // Assert
         assertThat(result.status()).isEqualTo(next);
         assertThat(rescueCase.getStatus()).isEqualTo(next);
         verify(repository).save(rescueCase);
     }
 
-    // TEST 4 - Transición inválida -> BusinessRuleException y nunca save()
     @Test
     void shouldRejectInvalidTransitionAndNeverSave() {
-        // Arrange
+
         RescueCase rescueCase = rescueCaseWithStatus(RescueStatus.ADMITTED);
         when(repository.findByCaseCode(CASE_CODE)).thenReturn(Optional.of(rescueCase));
 
-        // Act + Assert
         assertThatThrownBy(() -> service.changeStatus(
                 CASE_CODE,
                 new ChangeRescueStatusRequest(RescueStatus.READY_FOR_RELEASE)))
@@ -196,7 +167,6 @@ class RescueCaseServiceImplTest {
         verify(mapper, never()).toResponse(any());
     }
 
-    // Saltos, retrocesos, mismo estado y estados finales: todos deben fallar.
     @ParameterizedTest(name = "{0} -> {1} is rejected")
     @CsvSource({
             "ADMITTED,          RELEASED",
@@ -209,11 +179,10 @@ class RescueCaseServiceImplTest {
             "CLOSED,            ADMITTED"
     })
     void shouldRejectEveryTransitionOutsideTheFlow(RescueStatus current, RescueStatus next) {
-        // Arrange
+
         RescueCase rescueCase = rescueCaseWithStatus(current);
         when(repository.findByCaseCode(CASE_CODE)).thenReturn(Optional.of(rescueCase));
 
-        // Act + Assert
         assertThatThrownBy(() -> service.changeStatus(
                 CASE_CODE, new ChangeRescueStatusRequest(next)))
                 .isInstanceOf(BusinessRuleException.class);
@@ -224,10 +193,9 @@ class RescueCaseServiceImplTest {
 
     @Test
     void shouldThrowResourceNotFoundWhenChangingStatusOfUnknownCase() {
-        // Arrange
+
         when(repository.findByCaseCode("RES-999")).thenReturn(Optional.empty());
 
-        // Act + Assert
         assertThatThrownBy(() -> service.changeStatus(
                 "RES-999",
                 new ChangeRescueStatusRequest(RescueStatus.UNDER_EVALUATION)))
@@ -240,7 +208,7 @@ class RescueCaseServiceImplTest {
 
     @Test
     void shouldRejectRequestWithoutTargetStatus() {
-        // Act + Assert
+
         assertThatThrownBy(() -> service.changeStatus(
                 CASE_CODE, new ChangeRescueStatusRequest(null)))
                 .isInstanceOf(BusinessRuleException.class);
@@ -250,10 +218,6 @@ class RescueCaseServiceImplTest {
 
         verifyNoInteractions(repository, mapper);
     }
-
-    // ---------------------------------------------------------------
-    // Helpers
-    // ---------------------------------------------------------------
 
     private RescueCase rescueCaseWithStatus(RescueStatus status) {
         RescueCase rescueCase = new RescueCase(
